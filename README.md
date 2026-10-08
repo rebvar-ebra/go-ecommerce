@@ -1,19 +1,28 @@
 # Go E-Commerce Backend API
 
-A hands-on Go backend development project built step by step to learn Go fundamentals, RESTful APIs, databases, authentication, concurrency, testing, and deployment.
+A hands-on backend learning project built with Go. The application currently provides an in-memory product API and will gradually evolve into a database-backed e-commerce service.
 
-## Tech Stack
+## Current status
 
-- **Language:** Go 1.26+
-- **HTTP Server:** Go Standard Library (`net/http`)
-- **Router:** `http.ServeMux` (initial implementation)
-- **Database:** PostgreSQL (planned)
-- **Authentication:** JWT (planned)
-- **Cache:** Redis (planned)
-- **Containerization:** Docker (planned)
-- **CI/CD:** GitHub Actions (planned)
+**Lessons 1–3 completed:** HTTP server, structs and slices, GET/POST product endpoints, JSON decoding, basic validation, and mutex-protected in-memory storage.
 
-## Project Structure
+> This is a learning project, not a production-ready store. Data is reset when the server restarts.
+
+## Tech stack
+
+| Technology | Purpose | Status |
+| --- | --- | --- |
+| Go 1.26.2 | Backend language | In use |
+| `net/http` / `http.ServeMux` | HTTP server and routing | In use |
+| `encoding/json` | JSON request/response handling | In use |
+| `sync.Mutex` | Protect shared in-memory products | In use |
+| PostgreSQL | Persistent database | Planned |
+| JWT | Authentication | Planned |
+| Redis | Cache / background processing | Planned |
+| Docker | Containerization | Planned |
+| GitHub Actions | CI/CD | Planned |
+
+## Project structure
 
 ```text
 go-ecommerce/
@@ -24,175 +33,132 @@ go-ecommerce/
 └── README.md
 ```
 
-Additional packages and directories will be introduced as the project grows.
+## Prerequisites
 
-## Getting Started
+- Go 1.26 or newer (developed with Go 1.26.2 on Linux/amd64)
+- A terminal and a code editor
 
-### Prerequisites
+## Run locally
 
-- Go 1.26 or newer
-- Git
-- A terminal
-- VS Code or another code editor
-
-### Installation
-
-Clone the repository:
-
-```bash
-git clone https://github.com/YOUR_USERNAME/go-ecommerce.git
-cd go-ecommerce
-```
-
-Replace `YOUR_USERNAME` with your GitHub username.
-
-If working locally without a GitHub repository, simply open the existing `go-ecommerce` directory.
-
-### Run the Server
-
-```bash
-go run ./cmd/api
-```
-
-The development server runs at:
-
-```text
-http://localhost:8081
-```
-
-### Test the API
-
-For Lesson 1:
-
-```bash
-curl http://localhost:8081/
-```
-
-Expected response:
-
-```json
-{
-  "message": "Welcome to Go E-Commerce API"
-}
-```
-
-For Lesson 2, once implemented:
-
-```bash
-curl http://localhost:8081/products
-```
-
-## API Endpoints
-
-| Method | Endpoint | Description | Status |
-|---|---|---|---|
-| GET | `/` | Welcome message | Implemented |
-| GET | `/products` | List all products | In progress |
-| GET | `/products/{id}` | Get product by ID | Planned |
-| POST | `/products` | Create product | Planned |
-| PUT | `/products/{id}` | Update product | Planned |
-| DELETE | `/products/{id}` | Delete product | Planned |
-| POST | `/auth/register` | Register user | Planned |
-| POST | `/auth/login` | User login | Planned |
-| POST | `/orders` | Create order | Planned |
-| GET | `/orders` | Order history | Planned |
-
-## Learning Roadmap
-
-- [x] Lesson 1: Go project setup and first HTTP server
-- [ ] Lesson 2: Structs, slices, and GET `/products`
-- [ ] Lesson 3: JSON decoding and POST `/products`
-- [ ] Lesson 4: Methods, pointers, and error handling
-- [ ] Lesson 5: Packages and project organization
-- [ ] Lesson 6: Interfaces and dependency injection
-- [ ] Lesson 7: PostgreSQL integration
-- [ ] Lesson 8: Database migrations and SQL queries
-- [ ] Lesson 9: Authentication and authorization
-- [ ] Lesson 10: Shopping cart and order management
-- [ ] Lesson 11: Transactions and inventory management
-- [ ] Lesson 12: Goroutines, channels, and background workers
-- [ ] Lesson 13: Context and graceful shutdown
-- [ ] Lesson 14: Redis caching
-- [ ] Lesson 15: Unit and integration testing
-- [ ] Lesson 16: Docker and Docker Compose
-- [ ] Lesson 17: GitHub Actions and CI/CD
-- [ ] Lesson 18: Production deployment
-
-## Architecture (Planned)
-
-```text
-HTTP Client
-    |
-    v
-Router / Middleware
-    |
-    v
-Handler
-    |
-    v
-Service
-    |
-    v
-Repository
-    |
-    v
-PostgreSQL
-```
-
-The initial implementation uses Go's standard library. Additional layers will be introduced when needed.
-
-## Development Commands
-
-Run the application:
-
-```bash
-go run ./cmd/api
-```
-
-Format Go code:
+From the project root:
 
 ```bash
 go fmt ./...
+go build ./...
+go run ./cmd/api
 ```
 
-Check for common issues:
+The server currently listens on **http://localhost:8081**. Port 8081 is used because port 8080 was occupied on the development machine.
+
+## API reference
+
+| Method | Endpoint | Description | Status |
+| --- | --- | --- | --- |
+| `GET` | `/products` | List all products | Implemented |
+| `POST` | `/products` | Create a product | Implemented |
+| `GET` | `/products/{id}` | Get one product | Next lesson |
+| `PUT` | `/products/{id}` | Update a product | Planned |
+| `DELETE` | `/products/{id}` | Delete a product | Planned |
+| `POST` | `/auth/register` | Register user | Planned |
+| `POST` | `/auth/login` | Log in | Planned |
+| `POST` | `/orders` | Create order | Planned |
+
+### GET /products
 
 ```bash
-go vet ./...
+curl -i http://localhost:8081/products
 ```
 
-Run tests:
+Example response (`200 OK`):
+
+```json
+[
+  {"id":1,"name":"Laptop","price":999.99,"stock":10},
+  {"id":2,"name":"Keyboard","price":79.99,"stock":25}
+]
+```
+
+### POST /products
 
 ```bash
-go test ./...
+curl -i -X POST http://localhost:8081/products \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"Gaming Mouse","price":49.99,"stock":15}'
 ```
 
-Build the application:
+Example response (`201 Created`, assuming the two initial products):
+
+```json
+{"id":3,"name":"Gaming Mouse","price":49.99,"stock":15}
+```
+
+The server assigns the product ID; clients do not need to supply one.
+
+### Input validation
+
+The create endpoint rejects:
+
+- Invalid JSON, unknown fields, or multiple JSON values
+- Empty or whitespace-only product names
+- Prices less than or equal to zero
+- Negative stock quantities
+
+Invalid requests return `400 Bad Request`. The request body is limited to approximately 1 MiB. This is basic validation for learning, not comprehensive production validation.
+
+Test an invalid request:
 
 ```bash
-go build -o bin/api ./cmd/api
+curl -i -X POST http://localhost:8081/products \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"","price":-5,"stock":-1}'
 ```
 
-## Learning Goals
+## Concepts learned
 
-By completing this project, the developer should be able to:
+- Go modules, packages, imports, and `main()`
+- Structs, exported fields, and JSON tags
+- Slices, `append`, and maps
+- Functions and HTTP handlers
+- `http.ServeMux` routing
+- `json.NewEncoder` and `json.NewDecoder`
+- Pointers (`&input`) and error handling
+- Validation and HTTP status codes (`200`, `201`, `400`)
+- Basic concurrency safety with `sync.Mutex`
 
-1. Understand Go syntax and its type system.
-2. Build REST APIs using Go.
-3. Work with structs, interfaces, pointers, and packages.
-4. Handle errors and HTTP requests correctly.
-5. Design database-backed backend applications.
-6. Implement authentication and authorization.
-7. Understand goroutines, channels, and concurrency.
-8. Write automated tests.
-9. Containerize and deploy Go applications.
-10. Apply practical backend architecture principles.
+## Roadmap
 
-## Project Status
+- [x] **Lesson 1:** Initialize a Go module and start an HTTP server
+- [x] **Lesson 2:** Define product structs and implement `GET /products`
+- [x] **Lesson 3:** Implement `POST /products`, JSON decoding, validation, and basic mutex protection
+- [ ] **Lesson 4:** Implement `GET /products/{id}` and handle `404 Not Found`
+- [ ] **Lesson 5:** Update and delete products
+- [ ] **Lesson 6:** Organize packages, handlers, services, and repositories
+- [ ] **Lesson 7:** PostgreSQL integration and migrations
+- [ ] **Lesson 8:** Authentication and authorization
+- [ ] **Lesson 9:** Shopping cart and order transactions
+- [ ] **Lesson 10:** Goroutines, channels, and background jobs
+- [ ] **Lesson 11:** Context, timeouts, and graceful shutdown
+- [ ] **Lesson 12:** Redis caching
+- [ ] **Lesson 13:** Unit and integration testing
+- [ ] **Lesson 14:** Docker and Compose
+- [ ] **Lesson 15:** CI/CD and deployment
 
-**Current stage:** Lesson 1 completed, Lesson 2 in progress.
+## Development commands
 
-This is an educational project under active development.
+```bash
+go fmt ./...                 # Format code
+go vet ./...                 # Static checks
+go test ./...                # Run tests (as they are added)
+go build -o bin/api ./cmd/api # Build executable
+```
+
+## Known limitations
+
+- Products are stored in memory and disappear after restart.
+- IDs are assigned by a local counter, not a database sequence.
+- `float64` is used for prices for now; production monetary values should use integer minor units or a decimal type.
+- There is no authentication, persistence, pagination, or automated test suite yet.
+- A mutex protects shared product state within one process; it does not provide persistence or multi-instance coordination.
 
 ## License
 
