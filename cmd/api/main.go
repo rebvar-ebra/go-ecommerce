@@ -6,7 +6,9 @@ import (
 	"log"
 	"math"
 	"net/http"
+	"strconv"
 	"strings"
+	"sync"
 )
 
 type Message struct {
@@ -18,6 +20,8 @@ type Product struct {
 	Price float64 `json:"price"`
 	Stock int     `json:"stock"`
 }
+
+var mu sync.Mutex
 
 var products = []Product{
 	{ID: 1, Name: "Laptop", Price: 899.99, Stock: 20},
@@ -38,6 +42,26 @@ func getProducts(w http.ResponseWriter, r *http.Request) {
 		log.Println("Error encoding products:", err)
 	}
 }
+func getProductByID(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil || id <= 0 {
+		http.Error(w, "Invalid product ID", http.StatusBadRequest)
+		return
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	for _, product := range products {
+		if product.ID == id {
+			w.Header().Set("Content-Type", "application/json")
+			if err := json.NewEncoder(w).Encode(product); err != nil {
+				log.Println("Error encoding product:", err)
+			}
+			return
+		}
+	}
+	http.Error(w, "Product not found", http.StatusNotFound)
+}
 func createProduct(w http.ResponseWriter, r *http.Request) {
 	var newProduct struct {
 		Name  string  `json:"name"`
@@ -47,11 +71,11 @@ func createProduct(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<30) // Limit request body to 1MB
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields() // Disallow unknown fields in the JSON payload
-	  if err := decoder.Decode(&newProduct); err != nil {
-        log.Println("JSON decode error:", err)
-        http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
-        return
-    }
+	if err := decoder.Decode(&newProduct); err != nil {
+		log.Println("JSON decode error:", err)
+		http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
+		return
+	}
 	if err := decoder.Decode(&struct{}{}); err != io.EOF {
 		http.Error(w, "Request body must contain one valid JSON object", http.StatusBadRequest)
 		return
@@ -87,6 +111,7 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET/", homeHandler)
 	mux.HandleFunc("GET /products", getProducts)
+	mux.HandleFunc("GET /products/{id}", getProductByID)
 	mux.HandleFunc("POST /products", createProduct)
 	log.Println("Starting server on :8080")
 	if err := http.ListenAndServe(":8080", mux); err != nil {
