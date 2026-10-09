@@ -37,38 +37,58 @@ func homeHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 func getProducts(w http.ResponseWriter, r *http.Request) {
+	mu.Lock()
+	result := append([]Product(nil), products...) // Create a copy of the products slice
+	mu.Unlock()
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(products); err != nil {
+	if err := json.NewEncoder(w).Encode(result); err != nil {
 		log.Println("Error encoding products:", err)
 	}
 }
+
 func getProductByID(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
+
 	id, err := strconv.Atoi(idStr)
 	if err != nil || id <= 0 {
 		http.Error(w, "Invalid product ID", http.StatusBadRequest)
 		return
 	}
+
 	mu.Lock()
-	defer mu.Unlock()
+
+	var found Product
+	exists := false
+
 	for _, product := range products {
 		if product.ID == id {
-			w.Header().Set("Content-Type", "application/json")
-			if err := json.NewEncoder(w).Encode(product); err != nil {
-				log.Println("Error encoding product:", err)
-			}
-			return
+			found = product
+			exists = true
+			break
 		}
 	}
-	http.Error(w, "Product not found", http.StatusNotFound)
+
+	mu.Unlock()
+
+	if !exists {
+		http.Error(w, "Product not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+
+	if err := json.NewEncoder(w).Encode(found); err != nil {
+		log.Println("Error encoding product:", err)
+	}
 }
+
 func createProduct(w http.ResponseWriter, r *http.Request) {
 	var newProduct struct {
 		Name  string  `json:"name"`
 		Price float64 `json:"price"`
 		Stock int     `json:"stock"`
 	}
-	r.Body = http.MaxBytesReader(w, r.Body, 1<<30) // Limit request body to 1MB
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20) // Limit request body to 1MB
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields() // Disallow unknown fields in the JSON payload
 	if err := decoder.Decode(&newProduct); err != nil {
@@ -94,13 +114,17 @@ func createProduct(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Product stock must be a non-negative integer", http.StatusBadRequest)
 		return
 	}
+	var nextProductID = 4
+	mu.Lock()
 	product := Product{
-		ID:    len(products) + 1,
+		ID:    nextProductID,
 		Name:  strings.TrimSpace(newProduct.Name),
 		Price: newProduct.Price,
 		Stock: newProduct.Stock,
 	}
+	nextProductID++
 	products = append(products, product)
+	mu.Unlock()
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	if err := json.NewEncoder(w).Encode(product); err != nil {
